@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ドボン 点数計算</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .dark {
+            background-color: #d3d3d3;
+        }
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .btn {
+            margin: 5px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .btn.dark {
+            background-color: #555;
+            color: white;
+        }
+        .results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ドボン 点数計算</h1>
+    <div>
+        <h2>人数選択</h2>
+        <button class="btn" onclick="selectPlayers(2)">2人</button>
+        <button class="btn" onclick="selectPlayers(3)">3人</button>
+        <button class="btn" onclick="selectPlayers(4)">4人</button>
+        <button class="btn" onclick="selectPlayers(5)">5人</button>
+        <button class="btn" onclick="selectPlayers(6)">6人</button>
+    </div>
+    <div id="scoreboard" class="hidden">
+        <h2>スコアボード</h2>
+        <table id="scoreTable">
+            <thead>
+                <tr>
+                    <th>プレイヤー</th>
+                    <th>合計</th>
+                    <th>倍率 <button class="btn" onclick="changeMultiplier()">変更</button></th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <div>
+            <h2>点数入力</h2>
+            <div id="scoreInputButtons">
+                <!-- 点数入力ボタン (1〜13) -->
+                <button class="btn" onclick="enterScore(1)">1</button>
+                <button class="btn" onclick="enterScore(2)">2</button>
+                <button class="btn" onclick="enterScore(3)">3</button>
+                <button class="btn" onclick="enterScore(4)">4</button>
+                <button class="btn" onclick="enterScore(5)">5</button>
+                <button class="btn" onclick="enterScore(6)">6</button>
+                <button class="btn" onclick="enterScore(7)">7</button>
+                <button class="btn" onclick="enterScore(8)">8</button>
+                <button class="btn" onclick="enterScore(9)">9</button>
+                <button class="btn" onclick="enterScore(10)">10</button>
+                <button class="btn" onclick="enterScore(11)">11</button>
+                <button class="btn" onclick="enterScore(12)">12</button>
+                <button class="btn" onclick="enterScore(13)">13</button>
+            </div>
+            <div id="calculationSection">
+                <h2>計算過程</h2>
+                <div id="victorySection">
+                    <h3>勝利</h3>
+                </div>
+                <div id="defeatSection">
+                    <h3>敗北</h3>
+                </div>
+                <div>
+                    <h3>点数計算</h3>
+                    <span id="currentScore">0</span>
+                    <button class="btn" onclick="toggleMultiplier('joker')">初手ジョーカー</button>
+                    <button class="btn" onclick="toggleMultiplier('singleWin')">単勝</button>
+                    <button class="btn" onclick="toggleMultiplier('deckOut')">デッキ切れ２倍</button>
+                    <button class="btn" onclick="toggleMultiplier('deckOut2')">デッキ切れ２倍２回目</button>
+                </div>
+                <div>
+                    <h3>計算結果</h3>
+                    <span id="calculationResult">0</span>
+                </div>
+                <button class="btn" onclick="confirmResult()">確定</button>
+            </div>
+        </div>
+        <div class="results">
+            <h2>ゲーム結果</h2>
+            <ul id="gameResults">
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let currentPlayerScores = {};
+        let currentScore = 0;
+        let multipliers = { joker: false, singleWin: false, deckOut: false, deckOut2: false };
+        let gameCount = 0;
+        let multiplierValue = 30;
+
+        function selectPlayers(count) {
+            players = Array.from({ length: count }, (_, i) => prompt(`プレイヤー${i + 1}の名前を入力してください:`));
+            renderScoreboard();
+        }
+
+        function renderScoreboard() {
+            const scoreboard = document.getElementById('scoreboard');
+            const scoreTable = document.getElementById('scoreTable').querySelector('tbody');
+            scoreboard.classList.remove('hidden');
+            scoreTable.innerHTML = '';
+            players.forEach(player => {
+                currentPlayerScores[player] = 0;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${player}</td>
+                    <td id="total-${player}">0</td>
+                    <td id="multiplied-${player}">${currentPlayerScores[player] * multiplierValue}</td>
+                `;
+                scoreTable.appendChild(row);
+            });
+            renderVictoryDefeatButtons();
+        }
+
+        function renderVictoryDefeatButtons() {
+            const victorySection = document.getElementById('victorySection');
+            const defeatSection = document.getElementById('defeatSection');
+            victorySection.innerHTML = '<h3>勝利</h3>';
+            defeatSection.innerHTML = '<h3>敗北</h3>';
+            players.forEach(player => {
+                const victoryBtn = document.createElement('button');
+                victoryBtn.classList.add('btn');
+                victoryBtn.innerText = player;
+                victoryBtn.onclick = () => toggleVictoryDefeat(player, 'victory');
+                victorySection.appendChild(victoryBtn);
+
+                const defeatBtn = document.createElement('button');
+                defeatBtn.classList.add('btn');
+                defeatBtn.innerText = player;
+                defeatBtn.onclick = () => toggleVictoryDefeat(player, 'defeat');
+                defeatSection.appendChild(defeatBtn);
+            });
+        }
+
+        function enterScore(score) {
+            currentScore = score;
+            document.getElementById('currentScore').innerText = currentScore;
+            updateCalculationResult();
+        }
+
+        function toggleVictoryDefeat(player, type) {
+            const section = type === 'victory' ? 'victorySection' : 'defeatSection';
+            const btn = Array.from(document.getElementById(section).children).find(el => el.innerText === player);
+            btn.classList.toggle('dark');
+        }
+
+        function toggleMultiplier(type) {
+            multipliers[type] = !multipliers[type];
+            updateCalculationResult();
+        }
+
+        function updateCalculationResult() {
+            let result = currentScore;
+            if (multipliers.joker) result *= 2;
+            if (multipliers.singleWin) result *= 2;
+            if (multipliers.deckOut) result *= 2;
+            if (multipliers.deckOut2) result *= 2;
+            document.getElementById('calculationResult').innerText = result;
+        }
+
+        function confirmResult() {
+            gameCount++;
+            const scoreTable = document.getElementById('scoreTable').querySelector('tbody');
+            const result = parseInt(document.getElementById('calculationResult').innerText, 10);
+            let gameResult = `ゲーム ${gameCount}: `;
+            let multiplierInfo = [];
+
+            if (multipliers.joker) multiplierInfo.push("初手ジョーカー");
+            if (multipliers.singleWin) multiplierInfo.push("単勝");
+            if (multipliers.deckOut) multiplierInfo.push("デッキ切れ２倍");
+            if (multipliers.deckOut2) multiplierInfo.push("デッキ切れ２倍２回目");
+
+            players.forEach(player => {
+                const victoryBtn = Array.from(document.getElementById('victorySection').children).find(el => el.innerText === player);
+                const defeatBtn = Array.from(document.getElementById('defeatSection').children).find(el => el.innerText === player);
+                let scoreChange = victoryBtn.classList.contains('dark') ? result : (defeatBtn.classList.contains('dark') ? -result : 0);
+                currentPlayerScores[player] += scoreChange;
+                gameResult += `${player}: ${scoreChange}, `;
+            });
+
+            updateScoreboard();
+            logGameResult(gameResult + multiplierInfo.join(', '));
+            resetCalculationSection();
+        }
+
+        function updateScoreboard() {
+            players.forEach(player => {
+                const totalCell = document.getElementById(`total-${player}`);
+                const multipliedCell = document.getElementById(`multiplied-${player}`);
+                totalCell.innerText = currentPlayerScores[player];
+                multipliedCell.innerText = currentPlayerScores[player] * multiplierValue;
+            });
+        }
+
+        function resetCalculationSection() {
+            currentScore = 0;
+            document.getElementById('currentScore').innerText = currentScore;
+            document.getElementById('calculationResult').innerText = currentScore;
+            Object.keys(multipliers).forEach(key => multipliers[key] = false);
+            ['victorySection', 'defeatSection'].forEach(section => {
+                Array.from(document.getElementById(section).children).forEach(btn => btn.classList.remove('dark'));
+            });
+        }
+
+        function logGameResult(result) {
+            const gameResults = document.getElementById('gameResults');
+            const resultItem = document.createElement('li');
+            resultItem.innerText = result;
+            gameResults.appendChild(resultItem);
+        }
+
+        function changeMultiplier() {
+            const newValue = prompt("新しい倍率を入力してください:", multiplierValue);
+            if (!isNaN(newValue) && newValue > 0) {
+                multiplierValue = parseInt(newValue, 10);
+                updateScoreboard();
+            } else {
+                alert("正しい数値を入力してください。");
+            }
+        }
+    </script>
+</body>
+</html>
